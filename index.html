@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<!--
+  <!DOCTYPE html> 是文档类型声明，告诉浏览器这是 HTML5 文档
+  必须写在第一行，它不是 HTML 标签，而是一条指令
+-->
+<html lang="zh-CN">
+<!--
+  <html> 是整个网页的根元素，所有内容都包在里面
+  lang="zh-CN" 表示网页使用简体中文，帮助搜索引擎和屏幕阅读器理解
+-->
+<head>
+  <!--
+    <head> 是头部区域，放"元信息"（关于网页本身的信息）
+    这里的内容不会显示在页面上，但很重要：
+      - 字符编码声明（避免乱码）
+      - 标题（浏览器标签页上显示的）
+      - 样式表（决定页面长什么样）
+      - 其他配置
+  -->
+  <meta charset="UTF-8">
+  <!--
+    <meta charset="UTF-8"> 设置字符编码为 UTF-8
+    UTF-8 是最通用的编码，能正确显示中文、英文、emoji 等所有字符
+    没有这行，中文可能会变乱码
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    viewport 是"视口"的意思，控制页面在手机上的显示方式
+    width=device-width    → 页面宽度 = 设备屏幕宽度（适配手机）
+    initial-scale=1.0     → 初始缩放比例为 1（不缩放）
+    没有这行，手机浏览器会把页面缩小，字会很小
+  -->
+  <title>HTTP 协议全语法学习手册</title>
+  <!--
+    <title> 设置浏览器标签页上显示的文字
+    也是搜索引擎结果中显示的标题
+  -->
+
+  <!-- ============ CSS 样式开始 ============ -->
+  <!--
+    <style> 标签内写 CSS（层叠样式表），控制页面的颜色、布局、字体等
+    CSS 的格式是：选择器 { 属性: 值; }
+    例如：body { color: red; } 意思是把 body 里的文字变成红色
+  -->
+  <style>
+    /* ---- 根变量定义 ---- */
+    /*
+      :root 选择器代表整个文档的根元素（就是 <html>）
+      这里用 CSS 变量（--xxx）来定义配色方案
+      好处：后面要改颜色时，只改这里就行，不用到处找
+      var(--primary) 就是引用这些变量
+    */
+    :root {
+      --primary: #4f46e5;   /* 主色调：蓝紫色，用于激活的标签和强调 */
+      --get:     #22c55e;   /* GET    方法颜色：绿色（表示"获取"，安全的） */
+      --post:    #f59e0b;   /* POST   方法颜色：橙色（表示"提交"，需要小心） */
+      --put:     #3b82f6;   /* PUT    方法颜色：蓝色 */
+      --delete:  #ef4444;   /* DELETE 方法颜色：红色（表示"删除"，危险操作） */
+      --patch:   #a855f7;   /* PATCH  方法颜色：紫色 */
+      --head:    #06b6d4;   /* HEAD   方法颜色：青色 */
+      --options: #f97316;   /* OPTIONS 方法颜色：深橙色 */
+      --bg:      #f8fafc;   /* 页面背景色：浅灰白 */
+      --card-bg: #ffffff;   /* 卡片背景色：白色 */
+      --text:    #1e293b;   /* 正文颜色：深灰蓝 */
+      --text-secondary: #64748b;  /* 次要文字颜色：灰色 */
+      --border:  #e2e8f0;   /* 边框颜色：浅灰 */
+    }
+
+    /* ---- 全局重置 ---- */
+    /*
+      * 是通配符选择器，选中所有元素
+      这里做"CSS Reset"（样式重置）：清除浏览器默认的外边距和内边距
+      不同浏览器默认样式不同，重置后可以统一表现
+      box-sizing: border-box 让宽高计算包含边框和内边距，布局更直观
+    */
+    * {
+      margin: 0;            /* 外边距清零 */
+      padding: 0;           /* 内边距清零 */
+      box-sizing: border-box; /* 盒子模型：宽高 = content + padding + border */
+    }
+
+    /* ---- body 基本样式 ---- */
+    /*
+      body 是页面的主体，所有可见内容都在 body 标签里
+      这里设置全局字体、背景色、文字颜色、行高
+    */
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      /*
+        font-family 设置字体，按顺序尝试：
+        1. Segoe UI  → Windows 英文字体
+        2. PingFang SC → Mac 中文字体
+        3. Microsoft YaHei → Windows 中文字体（微软雅黑）
+        4. sans-serif → 无衬线体（兜底，系统默认）
+      */
+      background: var(--bg);    /* 背景色 = CSS 变量 --bg 的值 (#f8fafc) */
+      color: var(--text);       /* 文字颜色 = --text (#1e293b) */
+      line-height: 1.6;         /* 行高为字体大小的 1.6 倍，阅读更舒适 */
+      padding-bottom: 60px;     /* 底部留 60px 空白，防止内容贴底 */
+    }
+
+    /* ---- 顶部大标题区域 ---- */
+    .header {
+      /*
+        .header 选择 class="header" 的元素
+        这里是页面顶部的深色横条
+      */
+      background: linear-gradient(135deg, #1e293b, #334155);
+      /* linear-gradient 创建渐变背景：从深灰蓝(135度方向)渐变到浅灰蓝 */
+      color: #fff;              /* 文字白色 */
+      padding: 40px 20px;       /* 上下 40px，左右 20px */
+      text-align: center;       /* 文字居中 */
+      position: relative;       /* 相对定位，为子元素的绝对定位做锚点 */
+      overflow: hidden;         /* 超出边界的内容隐藏（裁剪掉装饰波浪） */
+    }
+    /* 顶部的装饰波浪效果 */
+    .header::after {
+      /*
+        ::after 是伪元素，会在 .header 内容后面插入一个虚拟元素
+        这里用它来画一个半透明的波浪形装饰
+      */
+      content: '';              /* 伪元素必须有 content 属性，即使是空字符串 */
+      position: absolute;       /* 绝对定位，相对于 .header（因为它是 relative） */
+      inset: 0;                 /* inset:0 等于 top:0; right:0; bottom:0; left:0; 铺满整个区域 */
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.05)" d="M0,160L48,176C96,192,192,224,288,208C384,192,480,128,576,133.3C672,139,768,213,864,202.7C960,192,1056,96,1152,74.7C1248,53,1344,107,1392,133.3L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"/></svg>') no-repeat bottom;
+      /*
+        用 data URI 把 SVG 图片直接内嵌在 CSS 中（不需要额外文件请求）
+        no-repeat  → 不重复平铺
+        bottom     → 对齐底部
+      */
+      background-size: cover;   /* 背景图拉伸覆盖整个区域 */
+    }
+    .header h1 {
+      /* .header h1 选择 .header 内部的一级标题 */
+      font-size: 2.4em;         /* 字号为父元素字号的 2.4 倍 */
+      font-weight: 700;         /* 字重 700 = 粗体（400=正常，700=bold） */
+      position: relative;       /* 相对定位，让 z-index 生效 */
+      z-index: 1;               /* 层级为 1，确保文字在波浪装饰之上 */
+    }
+    .header p {
+      /* .header p 选择 .header 内部的段落 */
+      font-size: 1.1em;
+      opacity: 0.8;             /* 透明度 80%，让副标题比主标题淡一些 */
+      margin-top: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ---- 内容容器 ---- */
+    .container {
+      max-width: 1100px;        /* 最大宽度 1100px，大屏幕上不会太宽 */
+      margin: 0 auto;           /* 上下 0，左右 auto → 居中显示 */
+      padding: 0 20px;          /* 左右各留 20px 内边距（手机边缘不吃满） */
+    }
+
+    /* ---- 顶部导航标签 ---- */
+    .tabs {
+      /* 标签栏容器 */
+      display: flex;            /* 弹性布局，子元素水平排列 */
+      flex-wrap: wrap;          /* 如果一行放不下，自动换行 */
+      gap: 8px;                 /* 子元素之间的间距为 8px */
+      margin: -28px 0 32px;     /* 上 -28px（上移与 header 重叠）, 0, 下 32px */
+      justify-content: center;  /* 子元素水平居中 */
+      position: relative;
+      z-index: 2;               /* 层级高于 header 波浪，确保标签可点击 */
+    }
+    .tab {
+      /* 每个标签按钮 */
+      padding: 10px 22px;       /* 上下 10px，左右 22px */
+      border-radius: 30px;      /* 圆角 30px → 胶囊形状 */
+      border: none;             /* 去掉默认边框 */
+      cursor: pointer;          /* 鼠标悬停时变成"手型"，提示可点击 */
+      font-size: 0.95em;
+      font-weight: 600;         /* 字重 600 = 半粗体 */
+      background: var(--card-bg);  /* 背景白色 */
+      color: var(--text-secondary); /* 文字灰色 */
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* 轻微阴影，有立体感 */
+      transition: all 0.25s;    /* 任意属性变化时用 0.25 秒过渡动画 */
+    }
+    .tab:hover {
+      /* :hover 表示鼠标悬停时的状态 */
+      transform: translateY(-2px);    /* 向上移动 2px（浮起来的感觉） */
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12); /* 阴影加深 */
+    }
+    .tab.active {
+      /* .active 表示当前选中的标签 */
+      background: var(--primary);  /* 背景变为主色调（蓝紫） */
+      color: #fff;                 /* 文字变白 */
+    }
+
+    /* ---- 卡片样式 ---- */
+    .card {
+      /* 每个内容卡片，包裹一个 HTTP 方法的演示区域 */
+      background: var(--card-bg);   /* 白色背景 */
+      border-radius: 16px;          /* 大圆角，现代风格 */
+      border: 1px solid var(--border);  /* 浅灰边框 */
+      padding: 28px;                /* 内边距 */
+      margin-bottom: 24px;          /* 下边距，卡片之间间距 */
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04); /* 极轻微阴影 */
+      transition: box-shadow 0.3s;  /* 阴影变化有 0.3 秒过渡 */
+    }
+    .card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08); /* 悬停时阴影加深 */
+    }
+    .card h2 {
+      /* 卡片内的二级标题 */
+      font-size: 1.35em;
+      display: flex;           /* 弹性布局，让标题和徽章在同一行 */
+      align-items: center;     /* 垂直居中对齐 */
+      gap: 10px;               /* 子元素间距 10px */
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border); /* 标题下方分割线 */
+    }
+
+    /* ---- HTTP 方法徽章 ---- */
+    .method-badge {
+      /* 通用徽章样式（每个方法一个彩色小标签） */
+      display: inline-block;   /* 行内块：可设宽高，但和其他元素在同一行 */
+      padding: 3px 12px;
+      border-radius: 6px;      /* 小圆角 */
+      font-size: 0.8em;
+      font-weight: 700;        /* 加粗 */
+      color: #fff;             /* 白字 */
+      letter-spacing: 0.5px;   /* 字母间距，让英文更好看 */
+    }
+    /* 每种 HTTP 方法对应不同背景颜色 */
+    .method-get     { background: var(--get);     } /* 绿色 */
+    .method-post    { background: var(--post);    } /* 橙色 */
+    .method-put     { background: var(--put);     } /* 蓝色 */
+    .method-delete  { background: var(--delete);  } /* 红色 */
+    .method-patch   { background: var(--patch);   } /* 紫色 */
+    .method-head    { background: var(--head);    } /* 青色 */
+    .method-options { background: var(--options); } /* 深橙色 */
+
+    /* ---- 代码块 ---- */
+    pre {
+      /*
+        <pre> 标签表示"预格式化文本"
+        保留空格和换行，通常用于展示代码
+      */
+      background: #1e293b;     /* 深色背景，模拟代码编辑器 */
+      color: #e2e8f0;          /* 浅色文字 */
+      border-radius: 10px;
+      padding: 18px 22px;
+      overflow-x: auto;        /* 如果代码太宽，显示水平滚动条 */
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      /* monospace 是等宽字体，代码每个字符宽度相同，方便对齐 */
+      font-size: 0.88em;
+      line-height: 1.7;        /* 行高 1.7 倍，代码行间有呼吸感 */
+      margin: 12px 0;
+    }
+    /* 代码高亮：不同语义用不同颜色 */
+    .cmt { color: #94a3b8; font-style: italic; }   /* 注释 (comment) → 灰色斜体 */
+    .kw  { color: #c084fc; }                        /* 关键字 (keyword) → 紫色 */
+    .str { color: #4ade80; }                        /* 字符串 (string) → 绿色 */
+    .mtd { color: #facc15; font-weight: bold; }     /* 方法 (method) → 黄色加粗 */
+    .num { color: #fb923c; }                        /* 数字 (number) → 橙色 */
+
+    /* ---- 按钮 ---- */
+    .btn {
+      display: inline-flex;    /* 行内弹性盒：和内联元素同行，内部弹性布局 */
+      align-items: center;     /* 内部元素垂直居中 */
+      gap: 6px;                /* 内部元素间距 */
+      padding: 10px 22px;
+      border: none;            /* 去掉默认边框 */
+      border-radius: 8px;
+      font-size: 0.95em;
+      font-weight: 600;
+      cursor: pointer;         /* 鼠标变手型 */
+      color: #fff;             /* 白字 */
+      transition: all 0.2s;    /* 所有变化用 0.2 秒过渡 */
+      margin: 4px;
+    }
+    .btn:hover  { transform: translateY(-1px); opacity: 0.9; } /* 悬停：上浮+微透明 */
+    .btn:active { transform: translateY(0); }                   /* 按下：回原位 */
+
+    /* 每种 HTTP 方法的按钮颜色 */
+    .btn-get     { background: var(--get);     }
+    .btn-post    { background: var(--post);    }
+    .btn-put     { background: var(--put);     }
+    .btn-delete  { background: var(--delete);  }
+    .btn-patch   { background: var(--patch);   }
+    .btn-head    { background: var(--head);    }
+    .btn-options { background: var(--options); }
+
+    /* ---- API 响应结果显示区 ---- */
+    .response-box {
+      margin-top: 14px;
+      padding: 14px 18px;
+      background: #f1f5f9;     /* 浅灰背景 */
+      border-radius: 10px;
+      font-family: 'Consolas', monospace; /* 等宽字体，JSON 显示对齐 */
+      font-size: 0.85em;
+      white-space: pre-wrap;   /* 保留空格和换行，但允许自动换行 */
+      word-break: break-all;   /* 长单词/URL 可以任意位置截断换行 */
+      max-height: 360px;       /* 最大高度，超出显示滚动条 */
+      overflow-y: auto;        /* 垂直方向超出时显示滚动条 */
+      border-left: 4px solid var(--primary); /* 左边彩色粗线，视觉引导 */
+    }
+    .response-box.loading { border-left-color: var(--post);   } /* 加载中 → 橙色 */
+    .response-box.success { border-left-color: var(--get);    } /* 成功   → 绿色 */
+    .response-box.error   { border-left-color: var(--delete); } /* 失败   → 红色 */
+
+    /* ---- 图片展示网格 ---- */
+    .image-grid {
+      display: grid;                       /* 网格布局 */
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      /*
+        auto-fit → 自动填充尽可能多的列
+        minmax(220px, 1fr) → 每列最小 220px，最大平分剩余空间
+        效果：屏幕宽时多列，窄时自动变少列甚至一列（响应式）
+      */
+      gap: 18px;              /* 网格项之间的间距 */
+      margin: 16px 0;
+    }
+    .image-card {
+      border-radius: 12px;
+      overflow: hidden;       /* 圆角生效需要裁剪超出部分 */
+      border: 1px solid var(--border);
+      background: #fff;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .image-card:hover {
+      transform: translateY(-4px);         /* 悬停上浮 */
+      box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    .image-card img {
+      width: 100%;            /* 图片宽度 = 父容器宽度 */
+      height: 160px;          /* 固定高度 */
+      object-fit: cover;      /* 图片裁剪并覆盖，保持比例，不会变形 */
+      display: block;         /* 去掉图片底部的默认空隙 */
+    }
+    .image-card .caption {
+      padding: 10px 14px;
+      font-size: 0.85em;
+      color: var(--text-secondary);
+      text-align: center;     /* 文字居中 */
+    }
+
+    /* ---- 表格 ---- */
+    table {
+      width: 100%;            /* 表格占满父容器宽度 */
+      border-collapse: collapse; /* 合并相邻单元格的边框（单线表格） */
+      margin: 12px 0;
+      font-size: 0.92em;
+    }
+    th, td {
+      text-align: left;       /* 文字左对齐 */
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border); /* 每行底部浅灰分割线 */
+    }
+    th {
+      background: #f1f5f9;       /* 表头浅灰背景 */
+      font-weight: 700;          /* 加粗 */
+      color: var(--text);
+    }
+    tr:hover td {
+      background: #f8fafc;       /* 鼠标悬停时整行变色，便于阅读 */
+    }
+
+    /* ---- 标签页切换 ---- */
+    .section {
+      display: none;           /* 默认隐藏所有标签页内容 */
+    }
+    .section.active {
+      display: block;          /* 只有带 .active 类的才显示 */
+    }
+  </style>
+  <!-- ============ CSS 样式结束 ============ -->
+</head>
+<body>
+  <!--
+    <body> 是网页的可见内容区域
+    屏幕上看到的一切都在 body 里面
+  -->
+
+  <!-- ==================== 页头 ==================== -->
+  <!--
+    <header> 是 HTML5 语义标签，表示"页头"区域
+    和 <div> 效果一样，但语义更清晰（搜索引擎和屏幕阅读器能理解这是头部）
+  -->
+  <header class="header">
+    <!-- <h1> 是一级标题，一个页面通常只有一个 h1，用于最重要的标题 -->
+    <h1>HTTP 协议全语法学习手册</h1>
+    <!-- <p> 是段落标签 -->
+    <p>涵盖所有 HTTP 请求方法、状态码、请求/响应头、图片资源加载 ｜ 点击按钮即可测试</p>
+  </header>
+
+  <!--
+    <div> 是"division"（区块）的缩写，最通用的容器标签
+    class="container" 用于限制内容宽度并居中
+  -->
+  <div class="container">
+
+    <!-- ==================== 导航标签栏 ==================== -->
+    <!-- <nav> 是 HTML5 语义标签，表示"导航"区域 -->
+    <nav class="tabs">
+      <!--
+        <button> 是按钮标签，onclick 属性表示点击时执行的 JavaScript 代码
+        switchTab('methods') 调用后面定义的函数，切换到「请求方法」标签页
+        class="tab active" → 默认选中这个标签（高亮显示）
+      -->
+      <button class="tab active" onclick="switchTab('methods', this)">请求方法</button>
+      <button class="tab" onclick="switchTab('status', this)">状态码</button>
+      <button class="tab" onclick="switchTab('headers', this)">请求/响应头</button>
+      <button class="tab" onclick="switchTab('images', this)">图片加载示例</button>
+      <button class="tab" onclick="switchTab('fullflow', this)">完整请求流程</button>
+    </nav>
+
+    <!-- ==================== 第一部分：HTTP 请求方法演示 ==================== -->
+    <!--
+      <section> 是 HTML5 语义标签，表示一个"内容区块"
+      id="methods" 是唯一标识符，JavaScript 通过它找到这个元素
+      class="section active" → 默认显示这个区块（其他区块 display:none 隐藏）
+    -->
+    <section id="methods" class="section active">
+
+      <!-- ===== GET 请求 ===== -->
+      <!-- 每个 HTTP 方法用一个 .card 卡片包裹 -->
+      <div class="card">
+        <!-- 卡片标题，包含方法徽章 + 中文说明 -->
+        <h2>
+          <!--
+            <span> 是行内容器，不换行
+            这里给 span 加两个 class：method-badge（通用徽章样式）+ method-get（绿色背景）
+          -->
+          <span class="method-badge method-get">GET</span>
+          <!-- 纯文本直接写在 h2 里 -->
+          获取资源 — 最常用的HTTP方法
+        </h2>
+
+        <!--
+          HTML 注释（<!-- ... -->）：不会被浏览器显示
+          下面这段注释解释 GET 方法的特点
+        -->
+        <!--
+          GET 方法关键特性：
+          - 用途：从服务器获取数据（读取，不修改）
+          - 参数放在 URL 的查询字符串中，例如 ?key=value&key2=value2
+          - 请求体(body)为空 —— GET 请求不携带请求体
+          - 是幂等的 —— 发送 1 次和 100 次 GET，结果不变
+          - 可被浏览器缓存 —— 重复请求可能直接拿缓存，不访问服务器
+          - URL 长度有限制 —— 通常约 2048 字符（不同浏览器不同）
+        -->
+
+        <!--
+          <pre> 预格式化文本：保留代码中的空格和换行
+          里面的 <span class="..."> 给不同部分加颜色（语法高亮）
+        -->
+        <pre><!-- HTTP GET 请求格式的完整示例 -->
+<span class="cmt">// HTTP GET 请求格式</span>
+<span class="mtd">GET</span> <span class="str">/api/posts/1</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="kw">Accept:</span> <span class="str">application/json</span>
+<span class="kw">User-Agent:</span> <span class="str">Mozilla/5.0</span>
+<span class="cmt">（请求体为空 —— GET 没有 body）</span></pre>
+
+        <!--
+          按钮：点击后调用 sendGet() 函数，发送真实 HTTP GET 请求
+          onclick 是事件属性，值是 JavaScript 代码
+        -->
+        <button class="btn btn-get" onclick="sendGet()">发送 GET 请求</button>
+
+        <!--
+          <div id="getResult"> 是结果显示区域
+          初始 style="display:none" 表示默认隐藏
+          JavaScript 收到响应后会填充内容并设置为显示
+        -->
+        <div id="getResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== POST 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-post">POST</span>
+          提交数据 — 创建新资源
+        </h2>
+        <!--
+          POST 方法关键特性：
+          - 用途：向服务器提交数据，通常用于创建新资源（注册、发帖、上传）
+          - 数据放在请求体（body）中，不在 URL 里（比 GET 安全，URL 不会暴露数据）
+          - Content-Type 头告诉服务器请求体的格式：
+            • application/json            → JSON 格式
+            • application/x-www-form-urlencoded → 表单格式（& 连接）
+            • multipart/form-data         → 上传文件用
+          - 不是幂等的 —— 提交两次 POST 会创建两个资源
+          - 请求体没有长度限制（GET 的 URL 有长度限制）
+          - 不会被浏览器缓存
+        -->
+        <pre><!-- HTTP POST 请求格式 -->
+<span class="cmt">// HTTP POST 请求格式</span>
+<span class="mtd">POST</span> <span class="str">/api/posts</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json; charset=UTF-8</span>
+<span class="kw">Content-Length:</span> <span class="num">62</span>
+
+<span class="cmt">// 请求体 (JSON 格式的数据)</span>
+{
+  <span class="str">"title"</span>: <span class="str">"Hello HTTP"</span>,
+  <span class="str">"body"</span>: <span class="str">"这是一条新帖子"</span>,
+  <span class="str">"userId"</span>: <span class="num">1</span>
+}</pre>
+        <button class="btn btn-post" onclick="sendPost()">发送 POST 请求</button>
+        <div id="postResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== PUT 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-put">PUT</span>
+          全量更新 — 替换整个资源
+        </h2>
+        <!--
+          PUT 方法关键特性：
+          - 用途：完整替换服务器上的某个资源
+          - 需要发送资源的"完整"表示（所有字段都要提供）
+          - 是幂等的 —— 发 1 次和 100 次 PUT，资源最终状态一样
+          - 如果资源不存在，PUT 可以创建新资源（取决于服务器实现）
+          - 与 PATCH 的区别：
+            • PUT  = 全量替换（发整个对象）
+            • PATCH = 部分更新（只发要改的字段）
+          类比：PUT 像把整个文件覆盖重写，PATCH 像只改文件里的几行
+        -->
+        <pre><!-- HTTP PUT 请求格式 -->
+<span class="cmt">// HTTP PUT 请求格式</span>
+<span class="mtd">PUT</span> <span class="str">/api/posts/1</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json; charset=UTF-8</span>
+
+{
+  <span class="str">"id"</span>: <span class="num">1</span>,
+  <span class="str">"title"</span>: <span class="str">"更新后的标题"</span>,
+  <span class="str">"body"</span>: <span class="str">"完整替换内容"</span>,
+  <span class="str">"userId"</span>: <span class="num">1</span>
+}</pre>
+        <button class="btn btn-put" onclick="sendPut()">发送 PUT 请求</button>
+        <div id="putResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== DELETE 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-delete">DELETE</span>
+          删除资源
+        </h2>
+        <!--
+          DELETE 方法关键特性：
+          - 用途：请求服务器删除指定资源
+          - 通常没有请求体（要删的资源由 URL 标识，如 /posts/1）
+          - 是幂等的 —— 删除后再次删除，结果一样（资源不存在了）
+          - 服务器可能返回：
+            • 200 OK + 被删资源的内容
+            • 204 No Content（无返回内容，更常见）
+        -->
+        <pre><!-- HTTP DELETE 请求格式 -->
+<span class="cmt">// HTTP DELETE 请求格式</span>
+<span class="mtd">DELETE</span> <span class="str">/api/posts/1</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="cmt">（请求体通常为空 —— DELETE 不需要 body）</span></pre>
+        <button class="btn btn-delete" onclick="sendDelete()">发送 DELETE 请求</button>
+        <div id="deleteResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== PATCH 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-patch">PATCH</span>
+          部分更新 — 只修改资源的一部分字段
+        </h2>
+        <!--
+          PATCH 方法关键特性：
+          - 用途：对资源进行部分修改（只改要变的部分）
+          - 请求体只包含需要修改的字段，不需要发完整对象
+          - 比 PUT 更节省带宽（只传要改的数据）
+          - 不是严格幂等的（取决于具体实现方式）
+          - 常用格式：
+            • JSON Merge Patch (RFC 7396)：{ "title": "新标题" }
+            • JSON Patch (RFC 6902)：[{ "op": "replace", "path": "/title", "value": "新" }]
+        -->
+        <pre><!-- HTTP PATCH 请求格式 -->
+<span class="cmt">// HTTP PATCH 请求格式（只发送需要修改的字段）</span>
+<span class="mtd">PATCH</span> <span class="str">/api/posts/1</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json; charset=UTF-8</span>
+
+{
+  <span class="str">"title"</span>: <span class="str">"只更新标题"</span>
+  <span class="cmt">// 注意：这里只发了 title，body 和 userId 都不发</span>
+  <span class="cmt">// 服务器只更新 title 字段，其他字段保持不变</span>
+}</pre>
+        <button class="btn btn-patch" onclick="sendPatch()">发送 PATCH 请求</button>
+        <div id="patchResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== HEAD 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-head">HEAD</span>
+          获取响应头 — 不返回响应体
+        </h2>
+        <!--
+          HEAD 方法关键特性：
+          - 用途：和 GET 一样，但服务器只返回响应头，不返回响应体（body 为空）
+          - 典型用途：
+            • 检查资源是否存在（看状态码是 200 还是 404）
+            • 获取文件大小（Content-Length），决定要不要下载
+            • 检查缓存是否过期（Last-Modified, ETag）
+          - 节省带宽：不下载大文件只获取元信息
+          - 响应头与同 URL 的 GET 请求完全一致
+        -->
+        <pre><!-- HTTP HEAD 请求格式 -->
+<span class="cmt">// HTTP HEAD 请求格式</span>
+<span class="mtd">HEAD</span> <span class="str">/api/posts/1</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="cmt">（格式和 GET 一样，但服务器不返回 body）</span>
+
+<span class="cmt">// 服务器响应（只有头部，body 为空）：</span>
+<span class="kw">HTTP/1.1</span> <span class="num">200</span> <span class="str">OK</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json</span>
+<span class="kw">Content-Length:</span> <span class="num">245</span>
+<span class="kw">Cache-Control:</span> <span class="str">max-age=43200</span>
+<span class="cmt">（注意：没有 body 内容，只有元数据）</span></pre>
+        <button class="btn btn-head" onclick="sendHead()">发送 HEAD 请求（查看响应头）</button>
+        <div id="headResult" class="response-box" style="display:none;"></div>
+      </div>
+
+      <!-- ===== OPTIONS 请求 ===== -->
+      <div class="card">
+        <h2>
+          <span class="method-badge method-options">OPTIONS</span>
+          预检请求 — 查询服务器支持的方法
+        </h2>
+        <!--
+          OPTIONS 方法关键特性：
+          - 用途：查询服务器对某个 URL 支持哪些 HTTP 方法
+          - CORS 预检请求的核心：
+            • 浏览器在发送跨域"非简单请求"前，自动发送 OPTIONS 请求
+            • 服务器返回 Access-Control-Allow-Methods 头，告知允许的方法
+            • 这就是为什么有时浏览器 Network 面板会看到两条请求（OPTIONS + 实际请求）
+          - 什么是"非简单请求"？
+            • 使用了 PUT/DELETE/PATCH 等方法
+            • Content-Type 不是 form 或 text/plain
+            • 自定义请求头
+        -->
+        <pre><!-- HTTP OPTIONS 请求格式 -->
+<span class="cmt">// HTTP OPTIONS 请求格式（CORS 预检请求）</span>
+<span class="mtd">OPTIONS</span> <span class="str">/api/posts</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">jsonplaceholder.typicode.com</span>
+<span class="kw">Origin:</span> <span class="str">https://example.com</span>
+<span class="kw">Access-Control-Request-Method:</span> <span class="mtd">POST</span>
+<span class="kw">Access-Control-Request-Headers:</span> <span class="str">Content-Type</span>
+
+<span class="cmt">// 服务器响应（列出所有允许的方法）：</span>
+<span class="kw">HTTP/1.1</span> <span class="num">204</span> <span class="str">No Content</span>
+<span class="kw">Allow:</span> <span class="mtd">GET, POST, PUT, DELETE, PATCH, OPTIONS</span>
+<span class="kw">Access-Control-Allow-Methods:</span> <span class="mtd">GET, POST, PUT, DELETE</span>
+<span class="kw">Access-Control-Allow-Headers:</span> <span class="str">Content-Type</span></pre>
+        <button class="btn btn-options" onclick="sendOptions()">发送 OPTIONS 请求</button>
+        <div id="optionsResult" class="response-box" style="display:none;"></div>
+      </div>
+
+    </section>
+
+    <!-- ==================== 第二部分：HTTP 状态码 ==================== -->
+    <section id="status" class="section">
+
+      <div class="card">
+        <h2>常用 HTTP 状态码一览表</h2>
+        <!--
+          状态码是三位的数字，表示服务器对请求的处理结果
+          分类规律（看第一位数字）：
+            1xx = 信息响应 —— 请求已接收，继续处理
+            2xx = 成功     —— 请求成功处理
+            3xx = 重定向   —— 需要进一步操作
+            4xx = 客户端错误 —— 你的请求有问题
+            5xx = 服务器错误 —— 服务器出了问题
+        -->
+        <table>
+          <thead>
+            <!-- <thead> 表头区域，<th> 表头单元格（默认加粗居中） -->
+            <tr><th>状态码</th><th>原因短语</th><th>含义说明</th></tr>
+          </thead>
+          <tbody>
+            <!-- <tbody> 表体，<tr> 表示一行，<td> 表示一个普通单元格 -->
+            <!-- <strong> 表示加粗强调 -->
+            <tr>
+              <td><strong>200</strong></td>
+              <td>OK</td>
+              <td>请求成功！GET 返回资源数据，POST 返回处理结果</td>
+            </tr>
+            <tr>
+              <td><strong>201</strong></td>
+              <td>Created</td>
+              <td>资源已创建（POST 成功后返回），响应头 Location 指向新资源的 URL</td>
+            </tr>
+            <tr>
+              <td><strong>204</strong></td>
+              <td>No Content</td>
+              <td>请求成功但没有返回内容（DELETE 操作常用），响应体为空</td>
+            </tr>
+            <tr>
+              <td><strong>301</strong></td>
+              <td>Moved Permanently</td>
+              <td>资源"永久"搬家到新 URL，浏览器会记住新地址，搜索引擎更新索引</td>
+            </tr>
+            <tr>
+              <td><strong>302</strong></td>
+              <td>Found</td>
+              <td>资源"临时"搬家，浏览器不记新地址，下次还用旧地址</td>
+            </tr>
+            <tr>
+              <td><strong>304</strong></td>
+              <td>Not Modified</td>
+              <td>资源没变，请用本地缓存（省流量），配合 If-None-Match / ETag 头使用</td>
+            </tr>
+            <tr>
+              <td><strong>400</strong></td>
+              <td>Bad Request</td>
+              <td>你的请求有语法错误或参数不对，服务器看不懂</td>
+            </tr>
+            <tr>
+              <td><strong>401</strong></td>
+              <td>Unauthorized</td>
+              <td>需要登录！你没带 Token 或 Token 过期了</td>
+            </tr>
+            <tr>
+              <td><strong>403</strong></td>
+              <td>Forbidden</td>
+              <td>服务器拒绝：你登录了，但没权限（如普通用户访问管理员页面）</td>
+            </tr>
+            <tr>
+              <td><strong>404</strong></td>
+              <td>Not Found</td>
+              <td>你要的资源不存在（最常见的错误，URL 打错了最常见）</td>
+            </tr>
+            <tr>
+              <td><strong>405</strong></td>
+              <td>Method Not Allowed</td>
+              <td>方法不对！如对只读资源用了 POST（应该用 GET）</td>
+            </tr>
+            <tr>
+              <td><strong>429</strong></td>
+              <td>Too Many Requests</td>
+              <td>你请求太快了，触发限流！稍等再试</td>
+            </tr>
+            <tr>
+              <td><strong>500</strong></td>
+              <td>Internal Server Error</td>
+              <td>服务器代码崩了（bug、配置错了等），不是你的问题</td>
+            </tr>
+            <tr>
+              <td><strong>502</strong></td>
+              <td>Bad Gateway</td>
+              <td>网关/代理收到上游服务器的无效响应</td>
+            </tr>
+            <tr>
+              <td><strong>503</strong></td>
+              <td>Service Unavailable</td>
+              <td>服务器暂时不可用（过载、在维护），等会再试</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>模拟测试不同状态码</h2>
+        <!--
+          下面用 httpbin.org 的 /status/{code} 接口来测试各种状态码
+          httpbin 是一个免费的 HTTP 测试服务，访问 /status/404 就会返回 404
+        -->
+        <pre><span class="cmt">// 使用 httpbin.org 测试状态码</span>
+<span class="cmt">// 访问 /status/{code} 路径，服务器会返回对应的状态码</span>
+<span class="cmt">// 例如 /status/404  →  返回 404 Not Found</span></pre>
+        <!-- 多个测试按钮，每个用不同的 style 内联样式设置按钮颜色 -->
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+          <button class="btn btn-get" onclick="testStatus(200)">模拟 200 OK</button>
+          <button class="btn btn-post" onclick="testStatus(201)">模拟 201 Created</button>
+          <button class="btn" style="background:#6366f1" onclick="testStatus(301)">模拟 301 永久重定向</button>
+          <button class="btn" style="background:#6366f1" onclick="testStatus(302)">模拟 302 临时重定向</button>
+          <button class="btn btn-delete" onclick="testStatus(404)">模拟 404 Not Found</button>
+          <button class="btn" style="background:#dc2626" onclick="testStatus(500)">模拟 500 服务器错误</button>
+          <button class="btn" style="background:#dc2626" onclick="testStatus(503)">模拟 503 服务不可用</button>
+        </div>
+        <div id="statusResult" class="response-box" style="display:none;"></div>
+      </div>
+
+    </section>
+
+    <!-- ==================== 第三部分：请求/响应头 ==================== -->
+    <section id="headers" class="section">
+
+      <div class="card">
+        <h2>常用 HTTP 请求头 (Request Headers)</h2>
+        <!--
+          请求头 = 客户端告诉服务器的额外信息
+          格式：头名称: 值
+          每个头一行，大小写不敏感
+        -->
+        <table>
+          <thead><tr><th>请求头</th><th>示例值</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Accept</strong></td>
+              <td><code>text/html, application/json</code></td>
+              <td>告诉服务器：我能接收这些格式的响应（MIME 类型）</td>
+            </tr>
+            <tr>
+              <td><strong>Authorization</strong></td>
+              <td><code>Bearer eyJhbGciOi...</code></td>
+              <td>携带认证令牌（JWT Token），证明"我是谁"</td>
+            </tr>
+            <tr>
+              <td><strong>Content-Type</strong></td>
+              <td><code>application/json; charset=utf-8</code></td>
+              <td>告诉服务器：我发的请求体是什么格式（POST/PUT 时才需要）</td>
+            </tr>
+            <tr>
+              <td><strong>Cookie</strong></td>
+              <td><code>sessionId=abc123; theme=dark</code></td>
+              <td>把之前服务器设置的 Cookie 发回去（登录状态等）</td>
+            </tr>
+            <tr>
+              <td><strong>User-Agent</strong></td>
+              <td><code>Mozilla/5.0 (Windows NT 10.0) ...</code></td>
+              <td>告诉服务器：我用的是什么浏览器和操作系统</td>
+            </tr>
+            <tr>
+              <td><strong>Referer</strong></td>
+              <td><code>https://www.google.com/</code></td>
+              <td>当前请求是从哪个页面跳过来的（注意拼写是错的，历史遗留）</td>
+            </tr>
+            <tr>
+              <td><strong>Cache-Control</strong></td>
+              <td><code>no-cache</code></td>
+              <td>控制缓存行为（no-cache 表示要验证后才能用缓存）</td>
+            </tr>
+            <tr>
+              <td><strong>If-None-Match</strong></td>
+              <td><code>"abc123"</code></td>
+              <td>配合 ETag 做条件请求：版本相同返回 304，不同返回 200+新内容</td>
+            </tr>
+            <tr>
+              <td><strong>Origin</strong></td>
+              <td><code>https://mysite.com</code></td>
+              <td>跨域请求时告知服务器：我的来源网站是 xxx</td>
+            </tr>
+            <tr>
+              <td><strong>Host</strong></td>
+              <td><code>api.example.com</code></td>
+              <td>目标服务器域名，HTTP/1.1 必须有的头（一台服务器托管多网站时分辩用哪个）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>常用 HTTP 响应头 (Response Headers)</h2>
+        <!--
+          响应头 = 服务器告诉客户端的额外信息
+          由服务器自动生成，告诉浏览器怎么处理响应内容
+        -->
+        <table>
+          <thead><tr><th>响应头</th><th>示例值</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Content-Type</strong></td>
+              <td><code>text/html; charset=utf-8</code></td>
+              <td>告诉浏览器：响应内容是什么类型（HTML/JSON/图片等）和编码</td>
+            </tr>
+            <tr>
+              <td><strong>Content-Length</strong></td>
+              <td><code>348</code></td>
+              <td>响应体的字节数（文件大小）</td>
+            </tr>
+            <tr>
+              <td><strong>Set-Cookie</strong></td>
+              <td><code>sessionId=abc; HttpOnly; Secure</code></td>
+              <td>要求浏览器保存 Cookie（HttpOnly=JS 不可读，Secure=仅 HTTPS 传输）</td>
+            </tr>
+            <tr>
+              <td><strong>Cache-Control</strong></td>
+              <td><code>max-age=3600, public</code></td>
+              <td>告诉浏览器：这个内容可以缓存 3600 秒（1小时）</td>
+            </tr>
+            <tr>
+              <td><strong>ETag</strong></td>
+              <td><code>"33a64df5514"</code></td>
+              <td>资源的"指纹"（通常是哈希值），内容变了指纹就变，用于缓存校验</td>
+            </tr>
+            <tr>
+              <td><strong>Location</strong></td>
+              <td><code>/posts/42</code></td>
+              <td>重定向目标地址（201 创建成功指向新资源，301/302 指向跳转地址）</td>
+            </tr>
+            <tr>
+              <td><strong>Access-Control-Allow-Origin</strong></td>
+              <td><code>*</code> 或 <code>https://a.com</code></td>
+              <td>CORS：允许哪些网站的 JS 跨域访问我（* = 任意网站）</td>
+            </tr>
+            <tr>
+              <td><strong>Last-Modified</strong></td>
+              <td><code>Wed, 21 Oct 2025 07:28:00 GMT</code></td>
+              <td>资源最后一次修改的时间</td>
+            </tr>
+            <tr>
+              <td><strong>X-Frame-Options</strong></td>
+              <td><code>DENY</code></td>
+              <td>安全：禁止本页面被嵌入到 iframe 中（防止点击劫持攻击）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+    <!-- ==================== 第四部分：图片加载示例 ==================== -->
+    <section id="images" class="section">
+
+      <div class="card">
+        <h2>图片通过 HTTP 加载的完整演示</h2>
+        <!--
+          浏览器加载图片的过程也是 HTTP 请求：
+          1. 浏览器解析 HTML，发现 <img> 标签
+          2. 向 src 指定的 URL 发起 HTTP GET 请求
+          3. 请求头自动包含 Accept: image/webp,image/* （浏览器告诉服务器要图片）
+          4. 服务器返回图片的二进制数据
+          5. 响应头 Content-Type 告诉浏览器图片格式（image/jpeg、image/png、image/svg+xml 等）
+          6. 浏览器解码数据并渲染到屏幕上
+
+          图片缓存机制：
+          - 浏览器会缓存图片（按 Cache-Control / ETag 策略）
+          - 304 Not Modified → 图片没变，用本地缓存，不发新请求
+          - from disk cache / from memory cache → 缓存命中，完全不发请求
+        -->
+        <pre><!-- 图片加载的 HTTP 原理 -->
+<span class="cmt">// HTML 中的 img 标签会自动发起 HTTP GET 请求</span>
+&lt;<span class="kw">img</span> <span class="kw">src</span>=<span class="str">"https://picsum.photos/400/300"</span> <span class="kw">alt</span>=<span class="str">"示例图片"</span>&gt;
+
+<span class="cmt">// 浏览器实际发送的 HTTP 请求（自动生成）：</span>
+<span class="mtd">GET</span> <span class="str">/400/300</span> <span class="kw">HTTP/1.1</span>
+<span class="kw">Host:</span> <span class="str">picsum.photos</span>
+<span class="kw">Accept:</span> <span class="str">image/avif,image/webp,image/apng,image/*,*/*</span>
+<span class="cmt">// 注意：浏览器自动添加了 Accept 头，表示它能接收这些图片格式</span>
+
+<span class="cmt">// 服务器响应：</span>
+<span class="kw">HTTP/1.1</span> <span class="num">200</span> <span class="str">OK</span>
+<span class="kw">Content-Type:</span> <span class="str">image/jpeg</span>          <span class="cmt">← 告诉浏览器这是 JPEG 图片</span>
+<span class="kw">Content-Length:</span> <span class="num">48231</span>              <span class="cmt">← 图片文件大小：约 48KB</span>
+<span class="kw">Cache-Control:</span> <span class="str">max-age=86400</span>      <span class="cmt">← 可以缓存 24 小时（86400秒）</span>
+<span class="cmt">（响应体：图片的二进制数据，浏览器解析后显示）</span></pre>
+
+        <!-- 使用 picsum.photos 免费图片服务演示 -->
+        <h3 style="margin:20px 0 12px;">静态图片加载 — 每个 &lt;img&gt; 标签触发一次 GET 请求</h3>
+        <div class="image-grid">
+          <!-- 三张演示图片，每张在加载时都会触发 HTTP GET -->
+          <div class="image-card">
+            <!--
+              src 属性 = 图片 URL，浏览器会自动向这个 URL 发 GET 请求
+              alt 属性 = 替代文字（图片加载失败时显示，也给屏幕阅读器用）
+              loading="lazy" = 懒加载：图片滚到视口附近才开始加载，节省带宽
+            -->
+            <img src="https://picsum.photos/id/1/400/300" alt="示例图片1 - 笔记本电脑" loading="lazy">
+            <div class="caption">GET /id/1/400/300 → 200 OK<br>Content-Type: image/jpeg</div>
+          </div>
+          <div class="image-card">
+            <img src="https://picsum.photos/id/10/400/300" alt="示例图片2 - 森林小路" loading="lazy">
+            <div class="caption">GET /id/10/400/300 → 200 OK<br>Content-Type: image/jpeg</div>
+          </div>
+          <div class="image-card">
+            <img src="https://picsum.photos/id/20/400/300" alt="示例图片3 - 海边" loading="lazy">
+            <div class="caption">GET /id/20/400/300 → 200 OK<br>Content-Type: image/jpeg</div>
+          </div>
+        </div>
+
+        <h3 style="margin:20px 0 12px;">SVG 矢量图加载 — 格式不同，但 HTTP 请求方式完全一样</h3>
+        <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
+          <!--
+            这张 SVG 图片同样触发 HTTP GET 请求
+            width/height 设置显示尺寸
+            style="object-fit:contain" 保持比例，完整显示在框内
+          -->
+          <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+               alt="WhatsApp 图标（SVG矢量图）" width="100" height="100"
+               style="object-fit:contain;">
+          <span style="color:var(--text-secondary);font-size:0.88em;">
+            同样通过 HTTP GET 加载<br>
+            响应头: <code>Content-Type: image/svg+xml</code><br>
+            浏览器收到后解析 SVG 的 XML 语法并渲染<br>
+            SVG 是矢量的，放大不失真，文件通常比 JPEG 小
+          </span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>「破图」与 HTTP 状态码的关系</h2>
+        <!--
+          当浏览器加载图片失败时：
+          - 404 → 图片 URL 不存在
+          - 403 → 有权限限制，不允许访问
+          - 500 → 图片服务器出问题
+          - 网络断开 → 连不上服务器
+          浏览器会触发 onerror 事件，显示 alt 替代文字
+        -->
+        <pre><!-- 破图演示 -->
+<span class="cmt">// 故意用一个不存在的 URL，浏览器会收到 404</span>
+&lt;<span class="kw">img</span> <span class="kw">src</span>=<span class="str">"https://httpbin.org/status/404"</span>
+     <span class="kw">alt</span>=<span class="str">"图片加载失败"</span>
+     <span class="kw">onerror</span>=<span class="str">"处理加载失败"</span>&gt;
+
+<span class="cmt">// 服务器返回:</span>
+<span class="kw">HTTP/1.1</span> <span class="num">404</span> <span class="str">Not Found</span>
+<span class="kw">Content-Type:</span> <span class="str">text/html</span>          <span class="cmt">← 返回的不是图片而是 HTML</span>
+<span class="cmt">→ 浏览器发现不是图片格式 → 触发 onerror → 显示破图 + alt 文字</span></pre>
+
+        <div style="display:flex; gap:24px; margin:16px 0; align-items:flex-start;">
+          <!-- 左边：故意给一个不存在的图片 URL，演示破图效果 -->
+          <div style="text-align:center;">
+            <img src="https://httpbin.org/status/404"
+                 alt="404 Not Found — 图片加载失败"
+                 style="width:200px;height:150px;object-fit:contain;border:2px dashed #ccc;border-radius:8px;background:#fafafa;"
+                 onerror="this.parentElement.querySelector('.errmsg').style.display='block'; this.style.display='none';">
+            <!-- onerror 事件：图片加载失败时触发，显示下面的错误提示 -->
+            <p class="errmsg" style="display:none;color:#ef4444;font-weight:600;margin-top:6px;">
+              HTTP 404 → 图片加载失败
+            </p>
+            <p style="color:var(--text-secondary);font-size:0.82em;">破图演示（404 Not Found）</p>
+          </div>
+          <!-- 右边：正常图片加载，200 OK -->
+          <div style="text-align:center;">
+            <img src="https://httpbin.org/image/jpeg"
+                 alt="200 OK — 成功加载示例"
+                 style="width:200px;height:150px;object-fit:contain;border:2px dashed #ccc;border-radius:8px;background:#fafafa;"
+                 onerror="this.parentElement.querySelector('.errmsg2').style.display='block'; this.style.display='none';">
+            <p class="errmsg2" style="display:none;color:#ef4444;font-weight:600;margin-top:6px;">
+              加载失败
+            </p>
+            <p style="color:var(--text-secondary);font-size:0.82em;">正常加载（200 OK）</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== 第五部分：完整 HTTP 请求-响应流程 ==================== -->
+    <section id="fullflow" class="section">
+
+      <div class="card">
+        <h2>一次完整的 HTTP 请求-响应交换</h2>
+        <!--
+          浏览器访问一个网址的完整流程：
+          1. DNS 解析：把域名(www.baidu.com)翻译成 IP 地址(110.242.68.66)
+          2. TCP 三次握手：客户端和服务器建立可靠连接
+             SYN → SYN-ACK → ACK（类似打电话：喂？喂！听到了）
+          3. TLS 握手（HTTPS）：协商加密方式，交换数字证书
+          4. 发送 HTTP 请求报文
+          5. 服务器接收、解析、处理
+          6. 服务器返回 HTTP 响应报文
+          7. 浏览器解析 HTML、加载 CSS/JS/图片等资源
+          8. TCP 四次挥手：关闭连接
+             但 HTTP/1.1 的 Keep-Alive 可以复用连接，不用每次都建立新连接
+        -->
+        <pre><!-- 完整请求-响应报文 -->
+<span class="cmt">/* ====== 第1步：客户端 → 服务器 (HTTP 请求报文) ====== */</span>
+
+<span class="mtd">POST</span> <span class="str">/api/users</span> <span class="kw">HTTP/1.1</span>   <span class="cmt">← ① 请求行：POST方法 + /api/users路径 + HTTP/1.1协议</span>
+<span class="kw">Host:</span> <span class="str">api.example.com</span>         <span class="cmt">← ② 请求头开始：目标主机域名</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json</span> <span class="cmt">← 告诉服务器：请求体是 JSON 格式</span>
+<span class="kw">Content-Length:</span> <span class="num">57</span>            <span class="cmt">← 请求体的字节数（用于服务器正确读取）</span>
+<span class="kw">Authorization:</span> <span class="str">Bearer eyJhbGci...</span> <span class="cmt">← 身份验证令牌（JWT）</span>
+<span class="kw">Accept:</span> <span class="str">application/json</span>     <span class="cmt">← 我希望服务器返回 JSON 格式</span>
+                                 <span class="cmt">← ③ 空行：必须！分隔头部和体</span>
+{                                <span class="cmt">← ④ 请求体：实际要提交的数据</span>
+  <span class="str">"name"</span>: <span class="str">"张三"</span>,
+  <span class="str">"email"</span>: <span class="str">"zhangsan@example.com"</span>
+}
+
+<span class="cmt">/* ====== 第2步：服务器处理后，服务器 → 客户端 (HTTP 响应报文) ====== */</span>
+
+<span class="kw">HTTP/1.1</span> <span class="num">201</span> <span class="str">Created</span>         <span class="cmt">← ① 状态行：HTTP/1.1 + 201(创建成功) + Created</span>
+<span class="kw">Content-Type:</span> <span class="str">application/json; charset=utf-8</span>  <span class="cmt">← ② 响应头开始</span>
+<span class="kw">Content-Length:</span> <span class="num">96</span>            <span class="cmt">← 响应体字节数</span>
+<span class="kw">Location:</span> <span class="str">/api/users/42</span>      <span class="cmt">← 新创建资源的 URL（201 时常用）</span>
+<span class="kw">Set-Cookie:</span> <span class="str">session=xyz; HttpOnly; Secure; SameSite=Lax</span>
+<span class="kw">Cache-Control:</span> <span class="str">no-store</span>      <span class="cmt">← 不允许缓存（敏感数据）</span>
+                                 <span class="cmt">← ③ 空行</span>
+{                                <span class="cmt">← ④ 响应体：服务器返回的数据</span>
+  <span class="str">"id"</span>: <span class="num">42</span>,
+  <span class="str">"name"</span>: <span class="str">"张三"</span>,
+  <span class="str">"email"</span>: <span class="str">"zhangsan@example.com"</span>,
+  <span class="str">"createdAt"</span>: <span class="str">"2025-07-15T10:30:00Z"</span>
+}</pre>
+      </div>
+
+      <div class="card">
+        <h2>HTTP 消息的通用结构（请求和响应都这样组织）</h2>
+        <pre><!-- HTTP 消息的四个部分 -->
+<span class="cmt">/*
+ * HTTP 消息结构（不管是请求还是响应）：
+ *
+ *  ┌──────────────────────────────┐
+ *  │ 起始行 (Start-Line)           │ → 请求 = 方法 + URI + 协议版本
+ *  │                               │   响应 = 协议版本 + 状态码 + 原因短语
+ *  ├──────────────────────────────┤
+ *  │ 头部字段 (Header Fields)      │ → 零个或多个，每个占一行
+ *  │ Host: api.example.com         │   格式：名称: 值
+ *  │ Content-Type: application/json│
+ *  │ ...                           │
+ *  ├──────────────────────────────┤
+ *  │ 空行 (一个 CRLF，即 \r\n)      │ → 必须有！分隔头部和体
+ *  ├──────────────────────────────┤
+ *  │ 消息体 (Message Body)         │ → 可选（GET/HEAD 没有）
+ *  │ {"name":"张三"}               │   格式由 Content-Type 决定
+ *  └──────────────────────────────┘
+ *
+ * 五个重要规则：
+ * 1. HTTP/1.1 请求必须包含 Host 头（因为一台服务器可能托管多个网站）
+ * 2. 头部字段名不区分大小写（Content-Type = content-type）
+ * 3. 每行结尾必须是 CRLF（\r\n，回车+换行），不能只用 LF（\n）
+ * 4. 头部和体之间必须有一个空行
+ * 5. HTTP/1.1 默认 Keep-Alive，一个 TCP 连接可以发多个请求/响应
+ *
+ * 延伸：HTTP/2 和 HTTP/3
+ * - HTTP/2：二进制帧，头部压缩，多路复用（一个连接并行多个请求）
+ * - HTTP/3：基于 QUIC（UDP 而非 TCP），更快，0-RTT 握手
+ */</span></pre>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- ============ JavaScript 交互逻辑 ============ -->
+  <script>
+    /*
+     * ================================================================
+     * 下面是用 JavaScript 实现的所有 HTTP 方法的真实演示
+     * 使用 fetch API 发送真正的 HTTP 请求，然后把结果展示在页面上
+     *
+     * fetch 是现代浏览器内置的函数，用来发 HTTP 请求
+     * 语法：fetch(url, options)
+     *   - url：请求地址
+     *   - options：配置对象，设置 method、headers、body 等
+     *   - 返回 Promise（异步操作）：用 await 等待结果
+     *     Promise 是 JavaScript 处理异步操作的方式
+     *     async/await 让异步代码写起来像同步代码，更好读
+     *
+     * 演示用的免费 API：
+     * - jsonplaceholder.typicode.com → 假的在线 REST API（免费测试用）
+     * - httpbin.org → HTTP 请求/响应测试工具
+     ================================================================ */
+
+    // ============ 工具函数：在页面上显示结果 ============
+    /**
+     * showResult - 在指定元素中显示请求结果
+     * @param {string} elementId - DOM 元素的 ID（如 'getResult'）
+     * @param {*}      data      - 要显示的数据（对象或字符串）
+     * @param {string} className - CSS 类名（success/error/loading）
+     */
+    function showResult(elementId, data, className) {
+      // document.getElementById 通过 ID 找到页面上的元素
+      const el = document.getElementById(elementId);
+      // 设置元素为显示（默认是 display:none 隐藏的）
+      el.style.display = 'block';
+      // 设置 CSS 类名（控制左边框颜色：绿色成功、红色失败、橙色加载中）
+      el.className = 'response-box ' + (className || '');
+      // 填充内容：如果是字符串直接显示，如果是对象转成 JSON 字符串显示
+      // typeof 判断数据类型，JSON.stringify(data, null, 2) ：
+      //   第2个参数 null 表示包含所有属性
+      //   第3个参数 2 表示缩进 2 个空格（让 JSON 格式化，方便阅读）
+      el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    // ============ GET 请求 ============
+    async function sendGet() {
+      // async 表示这是异步函数，里面可以用 await 等待异步操作完成
+      const resultEl = document.getElementById('getResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading'; // loading 类 → 橙色左边框
+      resultEl.textContent = '正在发送 GET 请求...';
+      try {  // try...catch 捕获可能出现的错误（网络断开等）
+        // await 等待 fetch 完成（不会卡住页面，因为 async 函数是异步的）
+        // fetch 不传第二个参数时，默认使用 GET 方法
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+        // response.json() 把响应体从 JSON 字符串解析为 JS 对象
+        // 这也是异步的，所以也要 await
+        const data = await response.json();
+        // 把结果展示在页面上，{ 键: 值 } 是 JS 对象字面量
+        showResult('getResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          // response.status = 200, response.statusText = "OK"
+          '响应头 Content-Type': response.headers.get('content-type'),
+          // response.headers.get() 获取指定响应头的值
+          '响应体': data  // 服务器返回的 JSON 数据
+        }, 'success');  // success 类 → 绿色左边框
+      } catch (e) {
+        // catch 捕获错误，e 是错误对象，e.message 是错误描述
+        showResult('getResult', 'GET 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ POST 请求 ============
+    async function sendPost() {
+      const resultEl = document.getElementById('postResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 POST 请求...';
+      try {
+        // fetch 第二个参数是配置对象
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
+          method: 'POST',     // 指定 HTTP 方法为 POST（不是默认的 GET）
+          headers: {
+            // headers 对象设置 HTTP 请求头
+            'Content-Type': 'application/json; charset=UTF-8'
+            // Content-Type 告诉服务器：我发的是 JSON 格式，编码是 UTF-8
+          },
+          // body 是请求体
+          // JSON.stringify() 把 JS 对象转为 JSON 字符串
+          body: JSON.stringify({
+            title: 'Hello HTTP — POST 请求测试',
+            body: '这是通过 POST 方法提交的数据',
+            userId: 1
+          })
+        });
+        const data = await response.json();
+        showResult('postResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          '新资源 ID': data.id, // jsonplaceholder 会返回 id=101
+          '响应体': data
+        }, 'success');
+      } catch (e) {
+        showResult('postResult', 'POST 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ PUT 请求 ============
+    async function sendPut() {
+      const resultEl = document.getElementById('putResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 PUT 请求...';
+      try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+          method: 'PUT', // PUT = 完整替换资源
+          headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+          // PUT 必须提供资源的全部字段
+          body: JSON.stringify({
+            id: 1,
+            title: '【已被 PUT 更新】完整替换的标题',
+            body: 'PUT 会用请求体完整替换原有资源',
+            userId: 1
+          })
+        });
+        const data = await response.json();
+        showResult('putResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          '响应体': data
+        }, 'success');
+      } catch (e) {
+        showResult('putResult', 'PUT 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ DELETE 请求 ============
+    async function sendDelete() {
+      const resultEl = document.getElementById('deleteResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 DELETE 请求...';
+      try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+          method: 'DELETE' // DELETE 只需要方法名，不需要 body
+        });
+        showResult('deleteResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          '说明': 'DELETE 成功删除资源 #1，模拟环境返回 200 OK'
+        }, 'success');
+      } catch (e) {
+        showResult('deleteResult', 'DELETE 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ PATCH 请求 ============
+    async function sendPatch() {
+      const resultEl = document.getElementById('patchResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 PATCH 请求...';
+      try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+          method: 'PATCH', // PATCH = 部分更新
+          headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+          // 只发送 title，不发送 body 和 userId（部分更新）
+          body: JSON.stringify({
+            title: '【已被 PATCH 部分更新】只修改了标题'
+          })
+        });
+        const data = await response.json();
+        showResult('patchResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          '说明': '仅发送了 title 字段，服务器只更新这一个字段',
+          '响应体': data
+        }, 'success');
+      } catch (e) {
+        showResult('patchResult', 'PATCH 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ HEAD 请求 ============
+    async function sendHead() {
+      const resultEl = document.getElementById('headResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 HEAD 请求...';
+      try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+          method: 'HEAD' // HEAD = 只获取响应头，不要 body
+        });
+        // 收集所有响应头到一个对象中
+        const headers = {};
+        // response.headers.forEach 遍历所有响应头
+        // (value, key) => {} 是箭头函数（简写的 function）
+        response.headers.forEach(function(value, key) {
+          headers[key] = value;  // 把每个头写入 headers 对象
+        });
+        showResult('headResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          '响应体': '(HEAD 请求没有响应体 —— 这正是 HEAD 的特点)',
+          '所有响应头': headers,
+          '用途说明': 'HEAD 用来检查资源是否存在、获取文件大小等，不下载实际内容'
+        }, 'success');
+      } catch (e) {
+        showResult('headResult', 'HEAD 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ OPTIONS 请求 ============
+    async function sendOptions() {
+      const resultEl = document.getElementById('optionsResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      resultEl.textContent = '正在发送 OPTIONS 预检请求...';
+      try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
+          method: 'OPTIONS' // OPTIONS = 查询服务器支持的方法
+        });
+        // 获取 Allow 响应头（列出服务器支持哪些 HTTP 方法）
+        const allowHeader = response.headers.get('allow');
+        showResult('optionsResult', {
+          '状态码': response.status + ' ' + response.statusText,
+          // || 运算符：如果 allowHeader 是 null/undefined，用后面的默认值
+          'Allow 头（支持的方法）': allowHeader || '(此服务器未返回 Allow 响应头)',
+          '用途说明': '浏览器在跨域时自动发送 OPTIONS，检查服务器是否允许该请求'
+        }, 'success');
+      } catch (e) {
+        showResult('optionsResult', 'OPTIONS 请求失败: ' + e.message, 'error');
+      }
+    }
+
+    // ============ 状态码模拟测试 ============
+    async function testStatus(code) {
+      // code 参数是传入的状态码数字，如 200、404、500
+      const resultEl = document.getElementById('statusResult');
+      resultEl.style.display = 'block';
+      resultEl.className = 'response-box loading';
+      // 反引号 `` 是模板字符串，${code} 会把变量嵌入字符串
+      resultEl.textContent = `正在请求状态码 ${code}...`;
+      try {
+        // httpbin.org/status/404 会返回 404 状态码
+        const response = await fetch(`https://httpbin.org/status/${code}`, {
+          redirect: 'follow' // 遇到 301/302 重定向时自动跟随
+        });
+        showResult('statusResult', {
+          '请求的状态码': code,
+          '实际返回状态码': response.status + ' ' + response.statusText,
+          '说明': (code === 301 && response.status === 200)
+            ? '注意：浏览器自动跟随了 301 重定向，最终拿到 200 OK'
+            : 'httpbin.org 按请求返回了对应的状态码'
+        }, response.ok ? 'success' : 'error');
+        // response.ok 是布尔值：状态码 200~299 时为 true，否则为 false
+        // 三元运算符 条件 ? 值1 : 值2   → 有点像 if-else 的简写
+      } catch (e) {
+        showResult('statusResult', `状态码 ${code} 请求失败: ` + e.message, 'error');
+      }
+    }
+
+    // ============ 标签页切换 ============
+    /**
+     * switchTab - 切换显示的标签页内容
+     * @param {string} name - 标签页的 ID（如 'methods', 'status'）
+     * @param {HTMLElement} clicked - 被点击的按钮元素
+     */
+    function switchTab(name, clicked) {
+      // ① 把所有标签按钮的 active 类移除（取消高亮）
+      // document.querySelectorAll 找到所有匹配 CSS 选择器的元素
+      // .tab 表示 CSS 类名为 tab 的元素
+      // forEach 遍历找到的每个元素
+      document.querySelectorAll('.tab').forEach(function(t) {
+        t.classList.remove('active'); // 移除高亮样式
+      });
+      // ② 给被点击的标签加上 active 类（高亮显示）
+      clicked.classList.add('active');
+
+      // ③ 隐藏所有内容区块
+      document.querySelectorAll('.section').forEach(function(s) {
+        s.classList.remove('active'); // 移除 active 类 → 回到 display:none
+      });
+      // ④ 显示目标区块
+      // document.getElementById(name) 通过传入的 ID 找到对应元素
+      document.getElementById(name).classList.add('active');
+    }
+  </script>
+
+</body>
+</html>

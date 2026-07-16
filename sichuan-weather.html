@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四川省实时气温地图</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff; min-height: 100vh;
+        }
+        header { text-align: center; padding: 20px; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        header h1 { font-size: 28px; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        header .info { font-size: 14px; color: #aaa; }
+        header .info span { margin: 0 15px; }
+        #refresh-btn { background: #3498db; color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; margin-top: 10px; transition: all 0.3s; }
+        #refresh-btn:hover { background: #2980b9; transform: scale(1.05); }
+        #refresh-btn:disabled { background: #666; cursor: not-allowed; transform: none; }
+        .map-container { position: relative; max-width: 1000px; margin: 20px auto; background: rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .map-wrapper { position: relative; width: 100%; }
+        .map-wrapper canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+        .city-marker { position: absolute; transform: translate(-50%, -50%); cursor: pointer; z-index: 10; transition: all 0.3s ease; }
+        .city-marker:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 20; }
+        .city-dot { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.7); box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.4); transition: all 0.3s; }
+        .city-name { position: absolute; top: 38px; left: 50%; transform: translateX(-50%); font-size: 11px; white-space: nowrap; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 10px; color: #fff; pointer-events: none; }
+        .city-marker:hover .city-name { background: rgba(0,0,0,0.9); }
+        .tooltip { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%) scale(0); background: rgba(0,0,0,0.85); padding: 10px 14px; border-radius: 10px; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
+        .city-marker:hover .tooltip { transform: translateX(-50%) scale(1); opacity: 1; }
+        .tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: rgba(0,0,0,0.85); }
+        .legend { max-width: 1000px; margin: 20px auto; background: rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; text-align: center; }
+        .legend h3 { margin-bottom: 15px; font-size: 16px; color: #ddd; }
+        .legend-bar { width: 100%; height: 24px; border-radius: 12px; margin: 10px 0; border: 1px solid rgba(255,255,255,0.2); }
+        .legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: #ccc; margin-top: 6px; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; transition: opacity 0.5s; }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 20px; font-size: 16px; color: #aaa; }
+        .error-msg { color: #e74c3c; font-size: 14px; margin-top: 10px; }
+        .countdown { color: #888; font-size: 12px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-text">正在加载地图...</div>
+        <div class="error-msg" id="error-msg"></div>
+    </div>
+
+    <header>
+        <h1>🌡️ 四川省实时气温监测地图</h1>
+        <div class="info">
+            <span>数据来源：Open-Meteo 免费气象 API</span>
+            <span>自动更新：每 5 分钟</span>
+            <span>上次更新：<strong id="last-update">--</strong></span>
+        </div>
+        <button id="refresh-btn" onclick="loadWeather()">🔄 手动刷新</button>
+        <div class="countdown">下次自动刷新：<span id="countdown">300</span> 秒</div>
+    </header>
+
+    <div class="map-container">
+        <div class="map-wrapper" id="map-wrapper">
+            <canvas id="heatmap-canvas"></canvas>
+        </div>
+    </div>
+
+    <div class="legend">
+        <h3>温度颜色图例</h3>
+        <div class="legend-bar" id="legend-bar"></div>
+        <div class="legend-labels" id="legend-labels"></div>
+    </div>
+
+    <script>
+        // ===== 城市数据：名称、经纬度、在地图上的百分比位置 =====
+        const cities = [
+            { name: '成都',  lat: 30.67, lon: 104.06, left: 48, top: 46 },
+            { name: '绵阳',  lat: 31.46, lon: 104.68, left: 58, top: 32 },
+            { name: '德阳',  lat: 31.13, lon: 104.40, left: 56, top: 40 },
+            { name: '广元',  lat: 32.43, lon: 105.82, left: 62, top: 22 },
+            { name: '南充',  lat: 30.80, lon: 106.08, left: 70, top: 42 },
+            { name: '达州',  lat: 31.21, lon: 107.47, left: 80, top: 38 },
+            { name: '巴中',  lat: 31.87, lon: 106.75, left: 72, top: 28 },
+            { name: '遂宁',  lat: 30.53, lon: 105.60, left: 65, top: 50 },
+            { name: '广安',  lat: 30.47, lon: 106.63, left: 76, top: 50 },
+            { name: '眉山',  lat: 30.08, lon: 103.83, left: 50, top: 55 },
+            { name: '雅安',  lat: 29.98, lon: 103.00, left: 42, top: 55 },
+            { name: '乐山',  lat: 29.57, lon: 103.77, left: 50, top: 68 },
+            { name: '内江',  lat: 29.59, lon: 105.06, left: 66, top: 60 },
+            { name: '自贡',  lat: 29.34, lon: 104.78, left: 68, top: 66 },
+            { name: '宜宾',  lat: 28.77, lon: 104.62, left: 64, top: 76 },
+            { name: '泸州',  lat: 28.87, lon: 105.44, left: 76, top: 72 },
+            { name: '攀枝花', lat: 26.58, lon: 101.72, left: 40, top: 88 },
+            { name: '西昌',  lat: 27.90, lon: 102.27, left: 45, top: 80 },
+            { name: '康定',  lat: 30.05, lon: 101.96, left: 25, top: 48 },
+            { name: '马尔康', lat: 31.90, lon: 102.22, left: 32, top: 28 },
+            { name: '资阳',  lat: 30.13, lon: 104.63, left: 60, top: 56 },
+        ];
+
+        let tempRange = { min: 0, max: 40 };
+        let isoInterval = 3;
+        let maskCache = null;
+        let cityPixelPos = null;
+
+        // ===== HSL → RGB =====
+        function hslToRgb(h, s, l) {
+            h /= 360; s /= 100; l /= 100;
+            let r, g, b;
+            if (s === 0) { r = g = b = l; }
+            else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1; if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+        }
+
+        // ===== 动态温度 → 颜色 =====
+        function tempToColor(temp) {
+            const t = Math.max(0, Math.min(1, (temp - tempRange.min) / (tempRange.max - tempRange.min)));
+            const hue = 225 - t * 225;   // 225°(蓝) → 0°(红)
+            const lightness = 35 + t * 17; // 35% → 52%
+            return hslToRgb(hue, 100, lightness);
+        }
+
+        // ===== 天气代码描述 =====
+        function getWeatherDesc(code) {
+            const codes = {
+                0: '晴朗', 1: '大部晴朗', 2: '部分多云', 3: '阴天',
+                45: '雾', 48: '雾凇', 51: '毛毛雨', 53: '中度毛毛雨', 55: '大毛毛雨',
+                56: '冻毛毛雨', 57: '大冻毛毛雨', 61: '小雨', 63: '中雨', 65: '大雨',
+                66: '冻雨', 67: '大冻雨', 71: '小雪', 73: '中雪', 75: '大雪',
+                77: '雪粒', 80: '小阵雨', 81: '中阵雨', 82: '大阵雨',
+                85: '小阵雪', 86: '大阵雪', 95: '雷雨', 96: '雷雨+冰雹', 99: '雷雨+大冰雹'
+            };
+            return codes[code] || '未知';
+        }
+
+        // ===== 构建蒙版：洪水填充区分省内/省外 =====
+        function buildMask(img, w, h) {
+            const oc = document.createElement('canvas');
+            oc.width = w; oc.height = h;
+            const octx = oc.getContext('2d');
+            octx.drawImage(img, 0, 0, w, h);
+            const idata = octx.getImageData(0, 0, w, h);
+            const d = idata.data;
+
+            const mask = new Array(h);
+            for (let y = 0; y < h; y++) mask[y] = new Uint8Array(w);
+
+            // 1) 标记边界像素（黑色/深灰线条）
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const i = (y * w + x) * 4;
+                    if (d[i] < 80 && d[i+1] < 80 && d[i+2] < 80) {
+                        mask[y][x] = 3; // boundary
+                    }
+                }
+            }
+
+            // 2) 洪水填充从边缘开始，标记所有“外部”白色背景
+            const stack = [];
+            function flood(sx, sy) {
+                if (sx < 0 || sx >= w || sy < 0 || sy >= h || mask[sy][sx] !== 0) return;
+                const i = (sy * w + sx) * 4;
+                if (d[i] <= 180 || d[i+1] <= 180 || d[i+2] <= 180) return;
+                stack.push([sx, sy]);
+                mask[sy][sx] = 2; // outside
+                while (stack.length) {
+                    const [x, y] = stack.pop();
+                    const nb = [[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+                    for (const [nx, ny] of nb) {
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h && mask[ny][nx] === 0) {
+                            const j = (ny * w + nx) * 4;
+                            if (d[j] > 180 && d[j+1] > 180 && d[j+2] > 180) {
+                                mask[ny][nx] = 2;
+                                stack.push([nx, ny]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 从所有边缘白色像素开始填充
+            for (let x = 0; x < w; x++) { flood(x, 0); flood(x, h-1); }
+            for (let y = 0; y < h; y++) { flood(0, y); flood(w-1, y); }
+
+            // 3) 剩余非边界像素 = 省内
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (mask[y][x] === 0) mask[y][x] = 1;
+                }
+            }
+
+            // 4) 右下角水印兜底：灰色文字强制标记为省外
+            const wmX = Math.floor(w * 0.70), wmY = Math.floor(h * 0.70);
+            for (let y = wmY; y < h; y++) {
+                for (let x = wmX; x < w; x++) {
+                    if (mask[y][x] === 1) {
+                        const i = (y * w + x) * 4;
+                        const mx = Math.max(d[i], d[i+1], d[i+2]);
+                        const mn = Math.min(d[i], d[i+1], d[i+2]);
+                        if (mx - mn < 40 && mn > 40 && mx < 210) mask[y][x] = 2;
+                    }
+                }
+            }
+            return mask;
+        }
+
+        // ===== IDW 插值构建温度网格 =====
+        function buildTempGrid(cityTemps, w, h, mask) {
+            const grid = new Array(h);
+            for (let y = 0; y < h; y++) grid[y] = new Float32Array(w);
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (mask[y][x] !== 1) { grid[y][x] = NaN; continue; }
+                    let num = 0, den = 0, exact = false;
+                    for (let i = 0; i < cityPixelPos.length; i++) {
+                        const dx = x - cityPixelPos[i].x;
+                        const dy = y - cityPixelPos[i].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 0.5) { grid[y][x] = cityTemps[i]; exact = true; break; }
+                        const wgt = 1 / (dist * dist);
+                        num += wgt * cityTemps[i]; den += wgt;
+                    }
+                    if (!exact) grid[y][x] = den > 0 ? num / den : cityTemps[0];
+                }
+            }
+            return grid;
+        }
+
+        // ===== 渲染热力图 + 等温线 + 边界 =====
+        function renderHeatmap(ctx, w, h, tempGrid, mask) {
+            const imgData = ctx.createImageData(w, h);
+            const pixels = imgData.data;
+
+            // 白色背景
+            for (let i = 0; i < pixels.length; i += 4) {
+                pixels[i] = 255; pixels[i+1] = 255; pixels[i+2] = 255; pixels[i+3] = 255;
+            }
+
+            // 等温分区填充
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (mask[y][x] !== 1) continue;
+                    const temp = tempGrid[y][x];
+                    const bucket = Math.floor(temp / isoInterval);
+                    const bucketMid = bucket * isoInterval + isoInterval / 2;
+                    const color = tempToColor(bucketMid);
+                    const idx = (y * w + x) * 4;
+                    pixels[idx] = color.r; pixels[idx+1] = color.g; pixels[idx+2] = color.b; pixels[idx+3] = 200;
+                }
+            }
+
+            // 等温线（桶边界）
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    if (mask[y][x] !== 1) continue;
+                    const b = Math.floor(tempGrid[y][x] / isoInterval);
+                    const br = (mask[y][x+1] === 1) ? Math.floor(tempGrid[y][x+1] / isoInterval) : b;
+                    const bd = (mask[y+1][x] === 1) ? Math.floor(tempGrid[y+1][x] / isoInterval) : b;
+                    if (b !== br || b !== bd) {
+                        const idx = (y * w + x) * 4;
+                        pixels[idx] = 25; pixels[idx+1] = 25; pixels[idx+2] = 25; pixels[idx+3] = 255;
+                    }
+                }
+            }
+
+            // 省界线/市界线（黑色）
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (mask[y][x] === 3) {
+                        const idx = (y * w + x) * 4;
+                        pixels[idx] = 0; pixels[idx+1] = 0; pixels[idx+2] = 0; pixels[idx+3] = 255;
+                    }
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        // ===== 创建城市标记 =====
+        function createCityMarkers() {
+            const wrapper = document.getElementById('map-wrapper');
+            cities.forEach(city => {
+                const marker = document.createElement('div');
+                marker.className = 'city-marker';
+                marker.style.left = city.left + '%';
+                marker.style.top = city.top + '%';
+
+                const dot = document.createElement('div');
+                dot.className = 'city-dot';
+                dot.textContent = '...';
+                dot.id = 'dot-' + city.name;
+                marker.appendChild(dot);
+
+                const name = document.createElement('div');
+                name.className = 'city-name';
+                name.textContent = city.name;
+                marker.appendChild(name);
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.id = 'tooltip-' + city.name;
+                tooltip.innerHTML = city.name + '<br>加载中...';
+                marker.appendChild(tooltip);
+
+                wrapper.appendChild(marker);
+            });
+        }
+
+        // ===== 更新城市显示 =====
+        function updateCityDisplay(cityName, temp, weatherCode, windSpeed) {
+            const dot = document.getElementById('dot-' + cityName);
+            const tooltip = document.getElementById('tooltip-' + cityName);
+            if (!dot) return;
+            const color = tempToColor(temp);
+            dot.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
+            dot.textContent = temp.toFixed(1) + '°';
+            if (tooltip) {
+                tooltip.innerHTML = `<strong>${cityName}</strong><br>温度：${temp.toFixed(1)}°C<br>天气：${getWeatherDesc(weatherCode)}<br>风速：${windSpeed} km/h`;
+            }
+        }
+
+        // ===== 更新图例 =====
+        function updateLegend() {
+            const bar = document.getElementById('legend-bar');
+            const labels = document.getElementById('legend-labels');
+            bar.style.background = 'linear-gradient(to right, hsl(225,100%,35%), hsl(180,100%,40%), hsl(120,100%,45%), hsl(60,100%,50%), hsl(30,100%,50%), hsl(0,100%,52%))';
+            labels.innerHTML = `<span>${tempRange.min.toFixed(1)}°C</span><span>${((tempRange.min+tempRange.max)/2).toFixed(1)}°C</span><span>${tempRange.max.toFixed(1)}°C</span>`;
+        }
+
+        // ===== 加载天气数据 =====
+        async function loadWeather() {
+            const btn = document.getElementById('refresh-btn');
+            const loading = document.getElementById('loading');
+            const errorMsg = document.getElementById('error-msg');
+            const loadingText = document.getElementById('loading-text');
+
+            btn.disabled = true;
+            loading.classList.remove('hidden');
+            loadingText.textContent = '正在获取实时气温数据...';
+            errorMsg.textContent = '';
+
+            try {
+                const requests = cities.map(city => {
+                    const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + city.lat + '&longitude=' + city.lon + '&current_weather=true';
+                    return fetch(url).then(r => r.json());
+                });
+                const results = await Promise.all(requests);
+
+                const cityTemps = [];
+                results.forEach((data, index) => {
+                    const city = cities[index];
+                    const cw = data.current_weather;
+                    cityTemps.push(cw.temperature);
+                    updateCityDisplay(city.name, cw.temperature, cw.weathercode, cw.windspeed);
+                });
+
+                // 动态温度范围
+                let minT = Math.min(...cityTemps);
+                let maxT = Math.max(...cityTemps);
+                const span = maxT - minT;
+                if (span < 3) { minT -= 1.5; maxT += 1.5; }
+                else { minT -= span * 0.1; maxT += span * 0.1; }
+                tempRange = { min: minT, max: maxT };
+
+                // 等温线间隔自适应
+                if (span > 25) isoInterval = 5;
+                else if (span > 12) isoInterval = 3;
+                else if (span > 6) isoInterval = 2;
+                else isoInterval = 1;
+
+                // 渲染热力图
+                const canvas = document.getElementById('heatmap-canvas');
+                const ctx = canvas.getContext('2d');
+                const tempGrid = buildTempGrid(cityTemps, canvas.width, canvas.height, maskCache);
+                renderHeatmap(ctx, canvas.width, canvas.height, tempGrid, maskCache);
+                updateLegend();
+
+                const now = new Date();
+                document.getElementById('last-update').textContent =
+                    now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' +
+                    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+                countdown = 300;
+
+            } catch (err) {
+                errorMsg.textContent = '数据获取失败：' + err.message;
+                console.error('天气数据获取失败:', err);
+            } finally {
+                loading.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        // ===== 倒计时 =====
+        let countdown = 300;
+        function updateCountdown() {
+            countdown--;
+            if (countdown < 0) countdown = 0;
+            document.getElementById('countdown').textContent = countdown;
+            if (countdown === 0) loadWeather();
+        }
+
+        // ===== 初始化 =====
+        async function init() {
+            const img = new Image();
+            img.src = 'fZhMu4pUY.jpeg';
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = () => reject(new Error('地图图片加载失败'));
+            });
+
+            // 设置容器比例
+            const aspectRatio = img.naturalHeight / img.naturalWidth;
+            document.getElementById('map-wrapper').style.paddingBottom = (aspectRatio * 100) + '%';
+
+            // 设置画布分辨率（最大 1000px 宽，保持比例）
+            const canvas = document.getElementById('heatmap-canvas');
+            const maxW = 1000;
+            const scale = Math.min(1, maxW / img.naturalWidth);
+            canvas.width = Math.floor(img.naturalWidth * scale);
+            canvas.height = Math.floor(img.naturalHeight * scale);
+
+            // 预计算城市像素位置
+            cityPixelPos = cities.map(c => ({
+                x: (c.left / 100) * canvas.width,
+                y: (c.top / 100) * canvas.height
+            }));
+
+            // 构建蒙版
+            maskCache = buildMask(img, canvas.width, canvas.height);
+
+            // 创建城市标记
+            createCityMarkers();
+
+            // 加载天气
+            await loadWeather();
+
+            // 启动倒计时
+            setInterval(updateCountdown, 1000);
+        }
+
+        init().catch(err => {
+            document.getElementById('loading-text').textContent = '初始化失败';
+            document.getElementById('error-msg').textContent = err.message;
+            console.error('初始化失败:', err);
+        });
+    </script>
+</body>
+</html>
